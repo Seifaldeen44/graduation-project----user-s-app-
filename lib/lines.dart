@@ -17,12 +17,12 @@ class _LinesState extends State<Lines> {
   int _selectedIndex = 0;
   GoogleMapController? googleMapController;
   Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
   late LocationService locationService;
   late CameraPosition initialCameraPosition;
   bool isCameraMoving = false;
   bool shouldRecenter = false;
   BitmapDescriptor? vehicleIcon;
-  BitmapDescriptor? userIcon;
   String selectedLine = '';
 
   @override
@@ -32,7 +32,6 @@ class _LinesState extends State<Lines> {
         zoom: 17, target: LatLng(31.187084851056554, 29.928110526889437));
     locationService = LocationService();
     _loadIcons();
-    _loadMarkers();
     updateMyLocation();
   }
 
@@ -45,26 +44,57 @@ class _LinesState extends State<Lines> {
   Future<void> _loadIcons() async {
     vehicleIcon = await BitmapDescriptor.fromAssetImage(
         const ImageConfiguration(size: Size(48, 48)), 'images/car_icon.png');
-    userIcon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(48, 48)), 'images/user_icon.png');
   }
 
-  void _loadMarkers() {
-    _markers.clear();
-    for (var place in places) {
-      _markers.add(
-        Marker(
-          markerId: MarkerId(place.id.toString()),
-          position: place.latlong,
-          infoWindow: InfoWindow(title: place.name),
-          onTap: () {
-            googleMapController?.animateCamera(
-              CameraUpdate.newLatLngZoom(place.latlong, 17),
-            );
-          },
-        ),
-      );
-    }
+  Future<void> _loadMarkersFromFirestore(String line) async {
+    FirebaseFirestore.instance
+        .collection('tram_lines')
+        .doc(line)
+        .collection('stations')
+        .orderBy('order')
+        .snapshots()
+        .listen((snapshot) {
+      Set<Marker> stationMarkers = {};
+      List<LatLng> lineCoordinates = [];
+
+      for (var doc in snapshot.docs) {
+        var data = doc.data();
+        if (data.containsKey('location') && data['location'] is GeoPoint) {
+          var location = data['location'] as GeoPoint;
+          LatLng stationPosition = LatLng(location.latitude, location.longitude);
+          lineCoordinates.add(stationPosition);
+
+          stationMarkers.add(
+            Marker(
+              markerId: MarkerId('station_${doc.id}'),
+              position: stationPosition,
+              infoWindow: InfoWindow(title: data['name']),
+              onTap: () {
+                googleMapController?.animateCamera(
+                  CameraUpdate.newLatLngZoom(stationPosition, 17),
+                );
+              },
+            ),
+          );
+        }
+      }
+
+      if (lineCoordinates.isNotEmpty) {
+        final polyline = Polyline(
+          polylineId: PolylineId(line),
+          color: Colors.blue,
+          width: 4,
+          points: lineCoordinates,
+        );
+
+        setState(() {
+          _markers.removeWhere((m) => m.markerId.value.startsWith('station_'));
+          _markers.addAll(stationMarkers);
+          _polylines.clear();
+          _polylines.add(polyline);
+        });
+      }
+    });
   }
 
   Future<void> signOut(BuildContext context) async {
@@ -86,7 +116,6 @@ class _LinesState extends State<Lines> {
       if (hasPermission) {
         locationService.getRealTimeLocationData((locationData) {
           if (locationData.latitude != null && locationData.longitude != null) {
-            setMyLocationMarker(locationData);
             if (shouldRecenter && !isCameraMoving) {
               googleMapController?.animateCamera(
                 CameraUpdate.newLatLng(
@@ -102,24 +131,6 @@ class _LinesState extends State<Lines> {
     } catch (e) {
       print("Error updating location: $e");
     }
-  }
-
-  void setMyLocationMarker(LocationData locationData) {
-    var myLocationMarker = Marker(
-        markerId: const MarkerId('my_location_marker'),
-        position: LatLng(locationData.latitude!, locationData.longitude!),
-        icon: userIcon ??
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-        onTap: () {
-          googleMapController?.animateCamera(
-            CameraUpdate.newLatLngZoom(
-                LatLng(locationData.latitude!, locationData.longitude!), 17),
-          );
-        });
-
-    setState(() {
-      _markers.add(myLocationMarker);
-    });
   }
 
   void listenForVehicleUpdates(String line) {
@@ -138,7 +149,7 @@ class _LinesState extends State<Lines> {
             data['active'] == true) {
           vehicleMarkers.add(
             Marker(
-              markerId: MarkerId(doc.id),
+              markerId: MarkerId('vehicle_${doc.id}'),
               position: LatLng(data['latitude'], data['longitude']),
               icon: vehicleIcon ??
                   BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
@@ -153,9 +164,9 @@ class _LinesState extends State<Lines> {
           );
         }
       }
+
       setState(() {
-        _markers.clear();
-        _loadMarkers();
+        _markers.removeWhere((m) => m.markerId.value.startsWith('vehicle_'));
         _markers.addAll(vehicleMarkers);
       });
     });
@@ -185,6 +196,7 @@ class _LinesState extends State<Lines> {
                       setState(() {
                         selectedLine = 'line1';
                         listenForVehicleUpdates(selectedLine);
+                        _loadMarkersFromFirestore(selectedLine);
                       });
                     },
                     child: Text('Line 1'),
@@ -195,6 +207,7 @@ class _LinesState extends State<Lines> {
                       setState(() {
                         selectedLine = 'line2';
                         listenForVehicleUpdates(selectedLine);
+                        _loadMarkersFromFirestore(selectedLine);
                       });
                     },
                     child: Text('Line 2'),
@@ -204,11 +217,10 @@ class _LinesState extends State<Lines> {
               Expanded(
                 child: GoogleMap(
                   zoomControlsEnabled: false,
+                  myLocationEnabled: true, // ✅ Show built-in blue dot
+                  myLocationButtonEnabled: false,
                   onMapCreated: (controller) {
                     googleMapController = controller;
-                    setState(() {
-                      _loadMarkers();
-                    });
                   },
                   onCameraMove: (_) {
                     isCameraMoving = true;
@@ -218,6 +230,7 @@ class _LinesState extends State<Lines> {
                   },
                   initialCameraPosition: initialCameraPosition,
                   markers: _markers,
+                  polylines: _polylines,
                 ),
               ),
             ],

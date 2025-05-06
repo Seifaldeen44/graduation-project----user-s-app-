@@ -1,3 +1,4 @@
+import 'package:finalproj/place_search_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:finalproj/components/logo.dart';
@@ -5,16 +6,8 @@ import 'package:finalproj/components/Button.dart';
 import 'package:finalproj/auth/phoneauth.dart'; // Import the PhoneAuthPage
 
 class HomePage extends StatefulWidget {
-  // final String firstName;
-  // final String secondName;
-  // final String email;
+  const HomePage({Key? key}) : super(key: key);
 
-  const HomePage({
-    Key? key,
-    // required this.firstName,
-    // required this.secondName,
-    // required this.email,
-  }) : super(key: key);
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
@@ -22,14 +15,20 @@ class HomePage extends StatefulWidget {
 class _MyHomePageState extends State<HomePage> {
   GlobalKey<ScaffoldState> scaffoldKey = GlobalKey();
   int selectedIndex = 0;
+  User? currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    currentUser = FirebaseAuth.instance.currentUser; // Get the current Firebase user
+  }
 
   // Function to sign out the user
   Future<void> signOut(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
       // Navigate the user back to the phone authentication page after sign-out
-      Navigator.pushReplacementNamed(
-          context, 'Phoneauth'); // Use 'Phoneauth' route here
+      Navigator.pushReplacementNamed(context, 'Phoneauth'); // Use 'Phoneauth' route here
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text("Error signing out: $e"),
@@ -52,31 +51,38 @@ class _MyHomePageState extends State<HomePage> {
         unselectedFontSize: 14,
         selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold),
         items: [
-          BottomNavigationBarItem(icon: IconButton(
-            icon: Icon(Icons.home),color: Colors.white,
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, 'Home');
-            },
-          ), label: "Home"),
           BottomNavigationBarItem(
-              icon: IconButton(
-                icon: Icon(Icons.directions_bus),
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, 'Lines');
-                },
-              ),
-              label: "Lines"),
-          BottomNavigationBarItem(icon: IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '');
-            },
-          ), label: "Settings")
+            icon: IconButton(
+              icon: Icon(Icons.home),
+              color: Colors.white,
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, 'Home');
+              },
+            ),
+            label: "Home",
+          ),
+          BottomNavigationBarItem(
+            icon: IconButton(
+              icon: Icon(Icons.directions_bus),
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, 'Lines');
+              },
+            ),
+            label: "Lines",
+          ),
+          BottomNavigationBarItem(
+            icon: IconButton(
+              icon: Icon(Icons.settings),
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, 'Settings');
+              },
+            ),
+            label: "Settings",
+          ),
         ],
       ),
       appBar: AppBar(
         actions: [CustomLogo()],
-        // title: Text('Tramify'),
         centerTitle: false,
         titleTextStyle: TextStyle(fontSize: 27, fontWeight: FontWeight.bold),
         backgroundColor: Colors.white,
@@ -103,8 +109,7 @@ class _MyHomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "",
-                        // "${widget.firstName} ${widget.secondName}",
+                        currentUser?.displayName ?? "Guest User", // Use current user name
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -112,27 +117,35 @@ class _MyHomePageState extends State<HomePage> {
                       ),
                       SizedBox(height: 12),
                       Text(
-                        "",
-                        // "${widget.email}",
+                        currentUser?.email ?? "No Email", // Use current user's email
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
             _buildDrawerItem(
-                icon: Icon(Icons.account_box, color: Colors.white),
-                title: "Account",
-                onTap: () {}),
+              icon: Icon(Icons.account_box, color: Colors.white),
+              title: "Account",
+              onTap: () {
+                Navigator.pushReplacementNamed(context, 'Account');
+              },
+            ),
             _buildDrawerItem(
-                icon: Icon(Icons.settings, color: Colors.white),
-                title: "Settings",
-                onTap: () {}),
+              icon: Icon(Icons.settings, color: Colors.white),
+              title: "Settings",
+              onTap: () {
+                Navigator.pushReplacementNamed(context, 'Settings');
+              },
+            ),
             _buildDrawerItem(
-                icon: Icon(Icons.help, color: Colors.white),
-                title: "About Us",
-                onTap: () {}),
+              icon: Icon(Icons.help, color: Colors.white),
+              title: "About Us",
+              onTap: () {
+                Navigator.pushReplacementNamed(context, 'AboutUs');
+              },
+            ),
             _buildDrawerItem(
               icon: Icon(Icons.headphones, color: Colors.white),
               title: "Help & Support",
@@ -162,8 +175,12 @@ class _MyHomePageState extends State<HomePage> {
               ),
               child: ListTile(
                 onTap: () {
-                  print("onTap");
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => PlaceSearchPage()),
+                  );
                 },
+
                 trailing: IconButton(
                   onPressed: () {},
                   iconSize: 30,
@@ -230,4 +247,3 @@ class _MyHomePageState extends State<HomePage> {
     );
   }
 }
-

@@ -43,7 +43,9 @@ dependencies:
   pinput: ^5.0.1
   firebase_app_check: ^0.3.2+1
   google_maps_flutter: ^2.10.0
+  google_place: ^0.4.7
   location: ^8.0.0
+  geolocator: ^9.0.1
   permission_handler: ^11.4.0
   shared_preferences: ^2.5.2
 
