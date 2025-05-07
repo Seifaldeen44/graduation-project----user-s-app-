@@ -61,12 +61,13 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => MapResultPage(
-                            lat: location.lat!,
-                            lng: location.lng!,
-                            name: predictions[index].description ?? "Unknown",
+                            lat: location.lat!,  // Ensure this value is valid and not null
+                            lng: location.lng!,  // Ensure this value is valid and not null
+                            name: predictions[index].description ?? "Unknown", // Default value if description is null
                           ),
                         ),
                       );
+
                     }
                   },
                 );
